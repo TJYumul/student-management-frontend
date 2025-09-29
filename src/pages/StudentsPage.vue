@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getStudents, deleteStudent } from '@/services/api'
 
@@ -9,7 +9,6 @@ const router = useRouter()
 const students = ref([])
 const loading = ref(false)
 const error = ref(null)
-const search = ref('')
 
 // Helpers to map API (snake_case) -> UI (camelCase)
 function mapFromApi(s) {
@@ -22,27 +21,25 @@ function mapFromApi(s) {
   }
 }
 
+// Small helper: the backend might wrap the array differently
+function extractStudents(payload) {
+  if (Array.isArray(payload)) return payload
+  if (!payload || typeof payload !== 'object') return []
+  return (
+    payload.data ||
+    payload.results ||
+    payload.students ||
+    payload.message ||
+    []
+  )
+}
+
 async function loadStudents() {
   loading.value = true
   error.value = null
   try {
     const res = await getStudents()
-    let raw = res.data
-    // Support common wrapper formats: { data: [...] }, { results: [...] }, { students: [...] }
-    if (Array.isArray(raw)) {
-      // direct array
-    } else if (Array.isArray(raw?.data)) {
-      raw = raw.data
-    } else if (Array.isArray(raw?.results)) {
-      raw = raw.results
-    } else if (Array.isArray(raw?.students)) {
-      raw = raw.students
-    } else if (Array.isArray(raw?.message)) {
-      // Laravel controller returns { message: Student::all() }
-      raw = raw.message
-    } else {
-      raw = []
-    }
+    const raw = extractStudents(res.data)
     students.value = raw.map(mapFromApi)
   } catch (e) {
     error.value = e?.response?.data?.message || 'Failed to load students.'
@@ -54,15 +51,6 @@ async function loadStudents() {
 
 onMounted(loadStudents)
 
-const filtered = computed(() => {
-  if (!search.value) return students.value
-  const q = search.value.toLowerCase()
-  return students.value.filter(s =>
-    [s.firstName, s.lastName, s.email].some(v => v && v.toLowerCase().includes(q))
-  )
-})
-
-// Deletion handling
 const confirmOpen = ref(false)
 const targetStudent = ref(null)
 const deleting = ref(false)
@@ -109,7 +97,6 @@ async function performDelete() {
         <p class="text-slate-600 text-sm">Manage and view enrolled students.</p>
       </div>
       <div class="flex gap-3 items-center">
-        <input v-model="search" type="text" placeholder="Search..." class="input w-56" />
         <RouterLink to="/students/create" class="btn">New</RouterLink>
       </div>
     </header>
@@ -126,22 +113,24 @@ async function performDelete() {
             <th>ID</th>
             <th>Name</th>
             <th>Email</th>
+            <th>Address</th>
             <th class="w-44">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="s in filtered" :key="s.id">
+          <tr v-for="s in students" :key="s.id">
             <td>{{ s.id }}</td>
             <td>{{ s.firstName }} {{ s.lastName }}</td>
             <td>{{ s.email }}</td>
+            <td class="truncate max-w-[14rem]" :title="s.address">{{ s.address }}</td>
             <td class="flex gap-3 items-center px-4 py-2">
               <RouterLink :to="`/students/${s.id}`" class="text-blue-600 hover:underline text-sm">View</RouterLink>
               <RouterLink :to="`/students/${s.id}/edit`" class="text-slate-600 hover:underline text-sm">Edit</RouterLink>
               <button @click="requestDelete(s)" class="text-red-600 hover:underline text-sm">Delete</button>
             </td>
           </tr>
-          <tr v-if="!filtered.length">
-            <td colspan="4" class="px-4 py-6 text-center text-slate-500">No students found.</td>
+          <tr v-if="!students.length">
+            <td colspan="5" class="px-4 py-6 text-center text-slate-500">No students found.</td>
           </tr>
         </tbody>
       </table>
