@@ -7,7 +7,6 @@
     <section class="relative max-w-3xl mx-auto px-4 py-20 text-center flex flex-col items-center gap-8">
       <div class="space-y-5">
         <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-800 font-sans">Student Management System</h1>
-        <p class="text-slate-600 text-lg max-w-2xl mx-auto">Easily manage student records in one place.</p>
       </div>
       <RouterLink to="/students" class="btn text-base px-6 py-3">Go to Student Records</RouterLink>
     </section>
